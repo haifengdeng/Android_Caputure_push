@@ -26,6 +26,7 @@ REQ_GNUTLS=gnutls
 REQ_OPENSSL=libssl,libcrypto
 LIBZ=-lz
 LIBS_posix=
+LIBS_android=
 LIBS_darwin=
 LIBS_mingw=-lws2_32 -lwinmm -lgdi32
 LIB_GNUTLS=-lgnutls -lhogweed -lnettle -lgmp $(LIBZ)
@@ -36,28 +37,33 @@ CRYPTO_LIB=$(LIB_$(CRYPTO)) $(PRIVATE_LIBS)
 CRYPTO_REQ=$(REQ_$(CRYPTO))
 CRYPTO_DEF=$(DEF_$(CRYPTO))
 
-SO_VERSION=0
+SO_VERSION=
 SOX_posix=so
+SOX_android=so
 SOX_darwin=dylib
 SOX_mingw=dll
 SOX=$(SOX_$(SYS))
-SO_posix=.$(SOX).$(SO_VERSION)
+SO_posix=.$(SOX)
 SO_darwin=.$(SO_VERSION).$(SOX)
 SO_mingw=-$(SO_VERSION).$(SOX)
+SO_android=.$(SOX)
 SO_EXT=$(SO_$(SYS))
 
 SODIR_posix=$(LIBDIR)
 SODIR_darwin=$(LIBDIR)
+SODIR_android=$(LIBDIR)
 SODIR_mingw=$(BINDIR)
 SODIR=$(SODIR_$(SYS))
 
 SO_LDFLAGS_posix=-shared -Wl,-soname,$@
+SO_LDFLAGS_android=-shared -Wl,-soname,$@
 SO_LDFLAGS_darwin=-dynamiclib -twolevel_namespace -undefined dynamic_lookup \
 	-fno-common -headerpad_max_install_names -install_name $(libdir)/$@
 SO_LDFLAGS_mingw=-shared -Wl,--out-implib,librtmp.dll.a
 SO_LDFLAGS=$(SO_LDFLAGS_$(SYS))
 
 INSTALL_IMPLIB_posix=
+INSTALL_IMPLIB_android=
 INSTALL_IMPLIB_darwin=
 INSTALL_IMPLIB_mingw=cp librtmp.dll.a $(LIBDIR)
 INSTALL_IMPLIB=$(INSTALL_IMPLIB_$(SYS))

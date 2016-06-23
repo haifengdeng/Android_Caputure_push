@@ -2503,6 +2503,16 @@ static void hexenc(unsigned char *inbuf, int len, char *dst)
     *ptr = '\0';
 }
 
+static char *
+AValChr(AVal *av, char c)
+{
+  int i;
+  for (i = 0; i < av->av_len; i++)
+    if (av->av_val[i] == c)
+      return &av->av_val[i];
+  return NULL;
+}
+
 static int
 PublisherAuth(RTMP *r, AVal *description)
 {
@@ -2774,7 +2784,7 @@ PublisherAuth(RTMP *r, AVal *description)
           /* hash2 = hexenc(md5(method + ":/" + app + "/" + appInstance)) */
           /* Extract appname + appinstance without query parameters */
 	  apptmp = r->Link.app;
-	  ptr = strchr(apptmp.av_val, '?');
+	  ptr = AValChr(&apptmp, '?');
 	  if (ptr)
 	    apptmp.av_len = ptr - apptmp.av_val;
 
@@ -2782,6 +2792,8 @@ PublisherAuth(RTMP *r, AVal *description)
 	  MD5_Update(&md5ctx, method, sizeof(method)-1);
 	  MD5_Update(&md5ctx, ":/", 2);
 	  MD5_Update(&md5ctx, apptmp.av_val, apptmp.av_len);
+	  if (!AValChr(&apptmp, '/'))
+	    MD5_Update(&md5ctx, "/_definst_", sizeof("/_definst_") - 1);
 	  MD5_Final(md5sum_val, &md5ctx);
           RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s:/%.*s) =>", __FUNCTION__,
 	    method, apptmp.av_len, apptmp.av_val);
@@ -5114,6 +5126,9 @@ RTMP_Write(RTMP *r, const char *buf, int size)
 	  buf += 3;
 	  s2 -= 11;
 
+	  if(pkt->m_packetType == RTMP_PACKET_TYPE_VIDEO){
+		  pkt->m_nChannel = 0x05;
+	  }
 	  if (((pkt->m_packetType == RTMP_PACKET_TYPE_AUDIO
                 || pkt->m_packetType == RTMP_PACKET_TYPE_VIDEO) &&
             !pkt->m_nTimeStamp) || pkt->m_packetType == RTMP_PACKET_TYPE_INFO)
