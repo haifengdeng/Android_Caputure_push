@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<items version="2" >
+
+    <item
+        jar="/home/haifeng/AndroidStudioProjects/srs-sea/app/build/intermediates/exploded-aar/com.android.support/support-v4/22.1.1/jars/classes.jar"
+        jumboMode="true"
+        revision="21.1.2"
+        sha1="c95ba8152923e4872e86a82cfcba9a51c0214328">
+        <dex dex="/home/haifeng/AndroidStudioProjects/srs-sea/app/build/intermediates/transforms/dex/debug/folders/1000/10/com.android.support-support-v4-22.1.1_b65480ca7394b613e0b1f1efc8d56d79abe2c2f7/classes.dex" />
+    </item>
+    <item
+        jar="/opt/andro_dev/android-sdk-linux/extras/android/m2repository/com/android/support/support-annotations/22.1.1/support-annotations-22.1.1.jar"
+        jumboMode="true"
+        revision="21.1.2"
+        sha1="01d051a6bfb1218b1db2d3a5af0480ac2c25c42a">
+        <dex dex="/home/haifeng/AndroidStudioProjects/srs-sea/app/build/intermediates/transforms/dex/debug/folders/1000/10/support-annotations-22.1.1_9de17d5c6c5c9575b846909d6084041e97974b26/classes.dex" />
+    </item>
+    <item
+        jar="/home/haifeng/AndroidStudioProjects/srs-sea/app/build/intermediates/incremental-runtime-classes/debug/instant-run.jar"
+        jumboMode="true"
+        revision="21.1.2"
+        sha1="60ff96151988ca58d2041e1269c951006ed82ddf">
+        <dex dex="/home/haifeng/AndroidStudioProjects/srs-sea/app/build/intermediates/transforms/dex/debug/folders/1000/10/instant-run_a139475f0118ddae6a2e19141f5e527f397498a9/classes.dex" />
+    </item>
+    <item
+        jar="/home/haifeng/AndroidStudioProjects/srs-sea/app/build/intermediates/incremental-classes/debug/instant-run-bootstrap.jar"
+        jumboMode="true"
+        revision="21.1.2"
+        sha1="31d38188e3df262c9ef7dff912d91bc0c92f9862">
+        <dex dex="/home/haifeng/AndroidStudioProjects/srs-sea/app/build/intermediates/transforms/dex/debug/folders/1000/10/instant-run-bootstrap_fd77759b0a4220f0c2a36917ac517037a7916d81/classes.dex" />
+    </item>
+    <item
+        jar="/home/haifeng/AndroidStudioProjects/srs-sea/app/build/intermediates/exploded-aar/com.android.support/support-v4/22.1.1/jars/libs/internal_impl-22.1.1.jar"
+        jumboMode="true"
+        revision="21.1.2"
+        sha1="9e070ad32b2700b0343e8e0cccc437733d91ba3a">
+        <dex dex="/home/haifeng/AndroidStudioProjects/srs-sea/app/build/intermediates/transforms/dex/debug/folders/1000/10/internal_impl-22.1.1_6cf36dd27a59763c45128ac312e0ee79c15ed14a/classes.dex" />
+    </item>
+    <item
+        jar="/home/haifeng/AndroidStudioProjects/srs-sea/app/build/intermediates/exploded-aar/com.android.support/appcompat-v7/22.1.1/jars/classes.jar"
+        jumboMode="true"
+        revision="21.1.2"
+        sha1="a3ff3c506644c820eb2bdf06e8339f72be578551">
+        <dex dex="/home/haifeng/AndroidStudioProjects/srs-sea/app/build/intermediates/transforms/dex/debug/folders/1000/10/com.android.support-appcompat-v7-22.1.1_2e72423deea20f65bb4146c02ce1cf366966bf0c/classes.dex" />
+    </item>
+
+</items>
