@@ -31,6 +31,10 @@ static const AVal av_mp4a  = AVC("mp4a");
 static const AVal av_onPrivateData = AVC("onPrivateData");
 static const AVal av_record = AVC("record");
 
+static uint8_t * pps = NULL;
+static int pps_size = 0;
+static uint8_t * sps = NULL;
+static uint8_t * sps_size = 0;
 
 static FILE *g_file_log = NULL;
 static char * log_filename = "/sdcard/rmtp.log";
@@ -164,7 +168,7 @@ static uint8_t gen_audio_tag_header()
     return val;
 }
 int rtmp_open_for_write(const char *url) {
-    init_rtmp_log_file();
+    //init_rtmp_log_file();
     rtmp = RTMP_Alloc();
     if (rtmp == NULL) {
         return -1;
@@ -429,6 +433,88 @@ static uint8_t * get_nal(uint32_t *len, uint8_t **offset, uint8_t *start, uint32
     return q;
 }
 
+static int write_pps_sps(
+                                  uint64_t dts_us,
+                                  uint32_t abs_ts)
+{
+    int val = 0;
+    uint32_t ts;
+    uint32_t nal_len;
+    uint32_t nal_len_n;
+    uint8_t *nal;
+    uint8_t *nal_n;
+    char *output ;
+    uint32_t offset = 0;
+    uint32_t body_len;
+    uint32_t output_len;
+
+    ts = (uint32_t)dts_us;
+    nal = pps;
+    nal_n = sps;
+    nal_len = pps_size;
+    nal_len_n = sps_size;
+
+        body_len = nal_len + nal_len_n + 16;
+        output_len = body_len + FLV_TAG_HEAD_LEN + FLV_PRE_TAG_LEN;
+        output = malloc(output_len);
+        if (!output) {
+            LOGD("Memory is not allocated...");
+	    return -1;
+        }
+        // flv tag header
+        output[offset++] = 0x09; //tagtype video
+        output[offset++] = (uint8_t)(body_len >> 16); //data len
+        output[offset++] = (uint8_t)(body_len >> 8); //data len
+        output[offset++] = (uint8_t)(body_len); //data len
+        output[offset++] = (uint8_t)(ts >> 16); //time stamp
+        output[offset++] = (uint8_t)(ts >> 8); //time stamp
+        output[offset++] = (uint8_t)(ts); //time stamp
+        output[offset++] = (uint8_t)(ts >> 24); //time stamp
+        output[offset++] = abs_ts; //stream id 0
+        output[offset++] = 0x00; //stream id 0
+        output[offset++] = 0x00; //stream id 0
+
+        //flv VideoTagHeader
+        output[offset++] = 0x17; //key frame, AVC
+        output[offset++] = 0x00; //avc sequence header
+        output[offset++] = 0x00; //composit time ??????????
+        output[offset++] = 0x00; // composit time
+        output[offset++] = 0x00; //composit time
+
+        //flv VideoTagBody --AVCDecoderCOnfigurationRecord
+        output[offset++] = 0x01; //configurationversion
+        output[offset++] = nal[1]; //avcprofileindication
+        output[offset++] = nal[2]; //profilecompatibilty
+        output[offset++] = nal[3]; //avclevelindication
+        output[offset++] = 0xff; //reserved + lengthsizeminusone
+        output[offset++] = 0xe1; //numofsequenceset
+        output[offset++] = (uint8_t)(nal_len >> 8); //sequence parameter set length high 8 bits
+        output[offset++] = (uint8_t)(nal_len); //sequence parameter set  length low 8 bits
+        memcpy(output + offset, nal, nal_len); //H264 sequence parameter set
+        offset += nal_len;
+        output[offset++] = 0x01; //numofpictureset
+        output[offset++] = (uint8_t)(nal_len_n >> 8); //picture parameter set length high 8 bits
+        output[offset++] = (uint8_t)(nal_len_n); //picture parameter set length low 8 bits
+        memcpy(output + offset, nal_n, nal_len_n); //H264 picture parameter set
+
+        //no need set pre_tag_size ,RTMP NO NEED
+        // flv test
+
+        offset += nal_len_n;
+        uint32_t fff = body_len + FLV_TAG_HEAD_LEN;
+        output[offset++] = (uint8_t)(fff >> 24); //data len
+        output[offset++] = (uint8_t)(fff >> 16); //data len
+        output[offset++] = (uint8_t)(fff >> 8); //data len
+        output[offset++] = (uint8_t)(fff); //data len
+
+        if (g_file_handle) {
+            fwrite(output, output_len, 1, g_file_handle);
+        }
+        val = RTMP_Write(rtmp, output, output_len);
+        //RTMP Send out
+        free(output);
+	return val;
+}
 
 // @brief send video frame, now only H264 supported
 // @param [in] rtmp_sender handler
@@ -472,6 +558,14 @@ int rtmp_sender_write_video_frame(uint8_t *data,
     }
     if (nal[0] == 0x67)  {
         LOGE("GET AVC PPS");
+	if (pps){
+            free(pps);
+	    pps = NULL;
+	}
+	pps =malloc(nal_len);
+	memcpy(pps,nal,nal_len);
+	pps_size = nal_len;
+
         if (video_config_ok == true) {
             RTMP_Log(RTMP_LOGERROR, "video config is already set");
             LOGE("video config is already set");
@@ -485,6 +579,15 @@ int rtmp_sender_write_video_frame(uint8_t *data,
             return -1;
         }
 	LOGE("GET AVC PPS");
+	if (sps){
+            free(sps);
+	    sps = NULL;
+	}
+	sps =malloc(nal_len_n);
+	memcpy(sps,nal_n,nal_len_n);
+	sps_size = nal_len_n;
+
+
         body_len = nal_len + nal_len_n + 16;
         output_len = body_len + FLV_TAG_HEAD_LEN + FLV_PRE_TAG_LEN;
         output = malloc(output_len);
@@ -547,6 +650,10 @@ int rtmp_sender_write_video_frame(uint8_t *data,
     }
     else if (nal[0] == 0x65)
     {
+	val = write_pps_sps(dts_us,abs_ts);
+	if(val <= 0)
+	   return -1;
+
         body_len = nal_len + 5 + 4; //flv VideoTagHeader +  NALU length
         output_len = body_len + FLV_TAG_HEAD_LEN + FLV_PRE_TAG_LEN;
         output = malloc(output_len);
