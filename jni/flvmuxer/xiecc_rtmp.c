@@ -578,7 +578,7 @@ int rtmp_sender_write_video_frame(uint8_t *data,
             LOGE("No Nal after SPS");
             return -1;
         }
-	LOGE("GET AVC PPS");
+	LOGE("GET AVC SPS");
 	if (sps){
             free(sps);
 	    sps = NULL;
@@ -650,6 +650,7 @@ int rtmp_sender_write_video_frame(uint8_t *data,
     }
     else if (nal[0] == 0x65)
     {
+	LOGE("write key frame");
 	val = write_pps_sps(dts_us,abs_ts);
 	if(val <= 0)
 	   return -1;

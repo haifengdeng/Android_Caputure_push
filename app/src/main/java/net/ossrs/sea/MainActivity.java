@@ -69,7 +69,7 @@ public class MainActivity extends Activity {
     //private String flv_url = "http://192.168.1.144:8936/live/livestream.flv";
     // the bitrate in kbps.
     private int vbitrate_kbps = 1000;
-    private final static int VFPS = 20;
+    private final static int VFPS = 24;
     private final static int VGOP = 10;
     private final static int VWIDTH = 640;
     private final static int VHEIGHT = 480;
