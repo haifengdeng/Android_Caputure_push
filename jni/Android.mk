@@ -43,17 +43,11 @@ LOCAL_MODULE := swscale
 LOCAL_SRC_FILES := libs/libswscale-3.so
 include $(PREBUILT_SHARED_LIBRARY)
 
-# stl share lib
-include $(CLEAR_VARS)
-LOCAL_MODULE := stlport_shared
-LOCAL_SRC_FILES := libs/libstlport_shared.so
-include $(PREBUILT_SHARED_LIBRARY)
-
-
 # rtmp library
 include $(CLEAR_VARS)
 LOCAL_MODULE := rtmp 
-LOCAL_SRC_FILES := libs/librtmp.so
+#LOCAL_SRC_FILES := libs/librtmp.so
+LOCAL_SRC_FILES := libs/librtmp_video5channel.so
 include $(PREBUILT_SHARED_LIBRARY)
 
 # Program
@@ -65,3 +59,4 @@ LOCAL_LDLIBS := -llog -lz
 LOCAL_SHARED_LIBRARIES := rtmp
 include $(BUILD_SHARED_LIBRARY)
 
+include $(call all-makefiles-under,$(LOCAL_PATH))
