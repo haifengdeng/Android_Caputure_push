@@ -59,7 +59,7 @@ LOCAL_SHARED_LIBRARIES := \
         libcutils \
         libdl \
         liblog
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include/android
 
 LOCAL_CLANG := true
 LOCAL_SANITIZE := integer
