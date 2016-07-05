@@ -1,6 +1,5 @@
 package net.ossrs.sea;
 
-import android.app.Activity;
 import android.content.SharedPreferences;
 import android.graphics.ImageFormat;
 import android.hardware.Camera;
@@ -11,27 +10,18 @@ import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.media.MediaRecorder;
-import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.SurfaceHolder;
-import android.view.SurfaceView;
-import android.view.View;
-import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.EditText;
-
-import net.ossrs.sea.R;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.List;
 
-public class MainActivity extends Activity {
+/**
+ * Created by haifeng on 16-7-4.
+ */
+public class PushStream {
     // audio device.
     private AudioRecord mic;
     private byte[] abuffer;
@@ -50,24 +40,22 @@ public class MainActivity extends Activity {
     private static final int ABITRATE_KBPS = 24;
 
     // video device.
+    public boolean isCameraBack=true;
     private Camera camera;
     private MediaCodec vencoder;
     private MediaCodecInfo vmci;
     private MediaCodec.BufferInfo vebi;
     private byte[] vbuffer;
+    private int pushWidth=VWIDTH;
+    private int pushHeight=VHEIGHT;
 
     // video camera settings.
     private Camera.Size vsize;
     private int vtrack;
     private int vcolor;
 
-    //private String flv_url = "http://ossrs.net:8936/live/sea.flv";
-    private String flv_url = "rtmp://10.128.164.55:1990/live/stream_test5";
-    //private String flv_url = "http://ossrs.net:8936/live/livestream.flv";
-    //private String flv_url = "http://192.168.1.137:8936/live/livestream.flv";
-    //private String flv_url = "http://192.168.2.111:8936/live/livestream.flv";
-    //private String flv_url = "http://192.168.1.144:8936/live/livestream.flv";
-    // the bitrate in kbps.
+    private String rtmp_url= "rtmp://10.128.164.55:1990/live/stream_test5";
+
     private int vbitrate_kbps = 1000;
     private final static int VFPS = 24;
     private final static int VGOP = 10;
@@ -77,25 +65,23 @@ public class MainActivity extends Activity {
     // encoding params.
     private long presentationTimeUs;
     private SrsHttpFlv muxer;
-    private RTMPMuxer  rtmpMuxer;
+    //private RTMPMuxer  rtmpMuxer;
     private byte[]    audioBuffer;
     private int       audioBuffersize;
     private byte[]    videoBuffer;
     private int       videoBuffersize;
 
-    // settings storage
-    private SharedPreferences sp;
 
-    private static final String TAG = "SrsPublisher";
+    private static final String TAG = "PushStream";
     // http://developer.android.com/reference/android/media/MediaCodec.html#createByCodecName(java.lang.String)
     private static final String VCODEC = "video/avc";
     private static final String ACODEC = "audio/mp4a-latm";
 
-    public MainActivity() {
+    public PushStream(){
         camera = null;
         vencoder = null;
         muxer = null;
-        rtmpMuxer=null;
+        //rtmpMuxer=null;
         audioBuffer=null;
         videoBuffer=null;
 
@@ -103,136 +89,71 @@ public class MainActivity extends Activity {
         videoBuffersize=0;
     }
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        sp = getSharedPreferences("SrsPublisher", MODE_PRIVATE);
-
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        setContentView(R.layout.activity_main);
-
-        // restore data.
-        flv_url = sp.getString("FLV_URL", flv_url);
-        vbitrate_kbps = sp.getInt("VBITRATE", vbitrate_kbps);
-        Log.i(TAG, String.format("initialize flv url to %s, vbitrate=%dkbps", flv_url, vbitrate_kbps));
-
-        // initialize url.
-        final EditText efu = (EditText) findViewById(R.id.flv_url);
-        efu.setText(flv_url);
-        efu.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                String fu = efu.getText().toString();
-                if (fu == flv_url || fu.isEmpty()) {
-                    return;
-                }
-
-                flv_url = fu;
-                Log.i(TAG, String.format("flv url changed to %s", flv_url));
-
-                SharedPreferences.Editor editor = sp.edit();
-                editor.putString("FLV_URL", flv_url);
-                editor.commit();
-            }
-        });
-
-        final EditText evb = (EditText) findViewById(R.id.vbitrate);
-        evb.setText(String.format("%dkbps", vbitrate_kbps));
-        evb.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                int vb = Integer.parseInt(evb.getText().toString().replaceAll("kbps", ""));
-                if (vb == vbitrate_kbps) {
-                    return;
-                }
-
-                vbitrate_kbps = vb;
-                Log.i(TAG, String.format("video bitrate changed to %d", vbitrate_kbps));
-
-                SharedPreferences.Editor editor = sp.edit();
-                editor.putInt("VBITRATE", vbitrate_kbps);
-                editor.commit();
-            }
-        });
-
-        // for camera, @see https://developer.android.com/reference/android/hardware/Camera.html
-        final Button btnPublish = (Button) findViewById(R.id.capture);
-        final Button btnStop = (Button) findViewById(R.id.stop);
-        final SurfaceView preview = (SurfaceView) findViewById(R.id.camera_preview);
-        btnPublish.setEnabled(true);
-        btnStop.setEnabled(false);
-
-        btnStop.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                dispose();
-
-                btnPublish.setEnabled(true);
-                btnStop.setEnabled(false);
-            }
-        });
-
-        btnPublish.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                dispose();
-                publish(fetchVideoFromDevice(), preview.getHolder());
-                btnPublish.setEnabled(false);
-                btnStop.setEnabled(true);
-            }
-        });
+    //camera switch
+    public void setCameraBack(boolean isback)
+    {
+        isCameraBack=isback;
     }
 
-    private void publish(Object onYuvFrame, SurfaceHolder holder) {
+    public boolean setVideoBitrate(int kbps)
+    {
+        if(kbps <=10) {
+            Log.e(TAG, String.format("video bitrate to small"));
+            return false;
+        }
+
+        if(kbps > 1000){
+            Log.w(TAG,String.format("video bitrate to large"));
+            vbitrate_kbps=1000;
+            return  true;
+        }
+
+        vbitrate_kbps=kbps;
+        return true;
+    }
+
+    public int setWidthHeight(int width,int height)
+    {
+        pushHeight=width;
+        pushHeight=height;
+        return 0;
+    }
+    public void start(String url,SurfaceHolder holder)
+    {
+        rtmp_url=url;
+        publish(fetchVideoFromDevice(),holder);
+    }
+    public void publish(Object onYuvFrame, SurfaceHolder holder) {
         if (vbitrate_kbps <= 10) {
             Log.e(TAG, String.format("video bitrate must 10kbps+, actual is %d", vbitrate_kbps));
             return;
         }
-        //if (!flv_url.startsWith("http://")) {
-         //   Log.e(TAG, String.format("flv url must starts with http://, actual is %s", flv_url));
+        //if (!rtmp_url.startsWith("http://")) {
+        //   Log.e(TAG, String.format("flv url must starts with http://, actual is %s", rtmp_url));
         //    return;
         //}
-        //if (!flv_url.endsWith(".flv")) {
-        //    Log.e(TAG, String.format("flv url must ends with .flv, actual is %s", flv_url));
+        //if (!rtmp_url.endsWith(".flv")) {
+        //    Log.e(TAG, String.format("flv url must ends with .flv, actual is %s", rtmp_url));
         //    return;
         //}
 
         // start the muxer to POST stream to SRS over HTTP FLV.
-        //muxer = new SrsHttpFlv(flv_url, SrsHttpFlv.OutputFormat.MUXER_OUTPUT_HTTP_FLV);
-
-        rtmpMuxer= new RTMPMuxer();
-
-
-        //try {
-        //    muxer.start();
-        //} catch (IOException e) {
-          //  Log.e(TAG, "start muxer failed.");
-         //   e.printStackTrace();
-         //   return;
-        //}
-        if(rtmpMuxer.open(flv_url) < 0)
-        {
-            Log.e(TAG, "open rtmpmuxer failed.");
-            return;
+        muxer = new SrsHttpFlv(rtmp_url, SrsHttpFlv.OutputFormat.MUXER_OUTPUT_HTTP_FLV);
+        try {
+            muxer.start();
+        } catch (IOException e) {
+           Log.e(TAG, "start muxer failed.");
+           e.printStackTrace();
+           return;
         }
-        Log.i(TAG, String.format("start muxer to SRS over HTTP FLV, url=%s", flv_url));
+
+        //rtmpMuxer= new RTMPMuxer();
+        //if(rtmpMuxer.open(rtmp_url) < 0)
+        //{
+        //    Log.e(TAG, "open rtmpmuxer failed.");
+        //    return;
+        //}
+        Log.i(TAG, String.format("start muxer to SRS over HTTP FLV, url=%s", rtmp_url));
 
         // the pts for video and audio encoder.
         presentationTimeUs = new Date().getTime() * 1000;
@@ -262,12 +183,16 @@ public class MainActivity extends Activity {
         aencoder.configure(aformat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
 
         // add the video tracker to muxer.
-        //atrack = muxer.addTrack(aformat);
+        atrack = muxer.addTrack(aformat);
         boolean is_have_audio=true;
         Log.i(TAG, String.format("muxer add audio track index=%d", atrack));
 
         // open camera.
-        camera = Camera.open(0);
+        if(isCameraBack)
+            camera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK);
+        else
+            camera = Camera.open(Camera.CameraInfo.CAMERA_FACING_FRONT);
+
         Camera.Parameters parameters = camera.getParameters();
 
         parameters.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
@@ -284,15 +209,15 @@ public class MainActivity extends Activity {
         List<Camera.Size> sizes = parameters.getSupportedPictureSizes();
         for (int i = 0; i < sizes.size(); i++) {
             Camera.Size s = sizes.get(i);
-            //Log.i(TAG, String.format("camera supported picture size %dx%d", s.width, s.height));
+            Log.i(TAG, String.format("camera supported picture size %dx%d", s.width, s.height));
             if (size == null) {
-                if (s.height == VHEIGHT) {
+                if (s.height == pushHeight) {
                     size = s;
                 }
-            } else {
-                if (s.width == VWIDTH) {
-                    size = s;
-                }
+            }
+
+            if(s.width == pushWidth && s.height == pushHeight){
+               size = s;
             }
         }
         parameters.setPictureSize(size.width, size.height);
@@ -302,15 +227,15 @@ public class MainActivity extends Activity {
         sizes = parameters.getSupportedPreviewSizes();
         for (int i = 0; i < sizes.size(); i++) {
             Camera.Size s = sizes.get(i);
-            //Log.i(TAG, String.format("camera supported preview size %dx%d", s.width, s.height));
+            Log.i(TAG, String.format("camera supported preview size %dx%d", s.width, s.height));
             if (size == null) {
-                if (s.height == VHEIGHT) {
+                if (s.height == pushHeight) {
                     size = s;
                 }
-            } else {
-                if (s.width == VWIDTH) {
-                    size = s;
-                }
+            }
+
+            if(s.width == pushWidth && s.height == pushHeight){
+                size = s;
             }
         }
         vsize = size;
@@ -342,7 +267,7 @@ public class MainActivity extends Activity {
         vformat.setInteger(MediaFormat.KEY_FRAME_RATE, VFPS);
         vformat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, VGOP);
         Log.i(TAG, String.format("vencoder %s, color=%d, bitrate=%d, fps=%d, gop=%d, size=%dx%d",
-            vmci.getName(), vcolor, vbitrate_kbps, VFPS, VGOP, vsize.width, vsize.height));
+                vmci.getName(), vcolor, vbitrate_kbps, VFPS, VGOP, vsize.width, vsize.height));
         // the following error can be ignored:
         // 1. the storeMetaDataInBuffers error:
         //      [OMX.qcom.video.encoder.avc] storeMetaDataInBuffers (output) failed w/ err -2147483648
@@ -350,7 +275,7 @@ public class MainActivity extends Activity {
         vencoder.configure(vformat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
 
         // add the video tracker to muxer.
-        //vtrack = muxer.addTrack(vformat);
+        vtrack = muxer.addTrack(vformat);
         Log.i(TAG, String.format("muxer add video track index=%d", vtrack));
 
         // set the callback and start the preview.
@@ -435,7 +360,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void dispose() {
+    public void dispose() {
         aloop = false;
         if (aworker != null) {
             Log.i(TAG, "stop audio worker thread");
@@ -484,11 +409,11 @@ public class MainActivity extends Activity {
             muxer.release();
             muxer = null;
         }
-        if(rtmpMuxer != null) {
-            Log.i(TAG, "stop rtmpmuxer to SRS over RTMP FLV");
-            rtmpMuxer.close();
-            rtmpMuxer = null;
-        }
+       // if(rtmpMuxer != null) {
+       //     Log.i(TAG, "stop rtmpmuxer to SRS over RTMP FLV");
+       //     rtmpMuxer.close();
+       //     rtmpMuxer = null;
+       // }
 
         if(audioBuffer != null) {
             audioBuffer=null;
@@ -501,62 +426,26 @@ public class MainActivity extends Activity {
 
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        final Button btn = (Button) findViewById(R.id.capture);
-        btn.setEnabled(true);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        dispose();
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
-
-        return super.onOptionsItemSelected(item);
-    }
-
     // when got encoded h264 es stream.
     private void onEncodedAnnexbFrame(ByteBuffer es, MediaCodec.BufferInfo bi) {
         try {
-            //muxer.writeSampleData(vtrack, es, bi);
-            Log.e(TAG, String.format("rtmpmuxer pos=%d,size=%d,limit=%d,timestamp=%d",es.position(),bi.size,es.limit(),
-                                   (int)bi.presentationTimeUs/1000));
-            int length= es.limit()-es.position();
-            if((videoBuffer == null) ||(videoBuffersize < length)) {
-                videoBuffer = null;
-                videoBuffer = new byte[length];
-                videoBuffersize = length;
-            }
-            es.get(videoBuffer,es.position(),length);
-            Log.e(TAG, String.format("rtmpmuxer get buffer data,%d,%d,%d,%d.",videoBuffer[0],videoBuffer[1],videoBuffer[2],videoBuffer[3]));
-            int ret=0;
-            ret=rtmpMuxer.writeSampleData(videoBuffer,0,length,(int)bi.presentationTimeUs/1000,false);
-            Log.w(TAG,String.format("rtmpMuxer.isConnected:%d.",rtmpMuxer.isConnected()));
-            if( ret < 0) {
-                Log.e(TAG, String.format("rtmpmuxer write video sample failed:%d.",ret));
-            }
+            muxer.writeSampleData(vtrack, es, bi);
+            //Log.e(TAG, String.format("rtmpmuxer pos=%d,size=%d,limit=%d,timestamp=%d",es.position(),bi.size,es.limit(),
+            //        (int)bi.presentationTimeUs/1000));
+            //int length= es.limit()-es.position();
+            //if((videoBuffer == null) ||(videoBuffersize < length)) {
+            //    videoBuffer = null;
+            //   videoBuffer = new byte[length];
+            //    videoBuffersize = length;
+            //}
+            //es.get(videoBuffer,es.position(),length);
+            //Log.e(TAG, String.format("rtmpmuxer get buffer data,%d,%d,%d,%d.",videoBuffer[0],videoBuffer[1],videoBuffer[2],videoBuffer[3]));
+            //int ret=0;
+            //ret=rtmpMuxer.writeSampleData(videoBuffer,0,length,(int)bi.presentationTimeUs/1000,false);
+            //Log.w(TAG,String.format("rtmpMuxer.isConnected:%d.",rtmpMuxer.isConnected()));
+            //if( ret < 0) {
+            //    Log.e(TAG, String.format("rtmpmuxer write video sample failed:%d.",ret));
+            //}
         } catch (Exception e) {
 
             e.printStackTrace();
@@ -601,24 +490,23 @@ public class MainActivity extends Activity {
     // when got encoded aac raw stream.
     private void onEncodedAacFrame(ByteBuffer es, MediaCodec.BufferInfo bi) {
         try {
-            //muxer.writeSampleData(atrack, es, bi);
-            Log.e(TAG, String.format("rtmpmuxer pos=%d,size=%d,limit=%d,timestampe=%d",es.position(),bi.size,es.limit(),
-                    (int)bi.presentationTimeUs/1000));
-            int length= es.limit()-es.position();
-            if((audioBuffer == null) ||(audioBuffersize < length)) {
-                audioBuffer = null;
-                audioBuffer = new byte[length];
-                audioBuffersize = length;
-            }
+            muxer.writeSampleData(atrack, es, bi);
+            //Log.e(TAG, String.format("rtmpmuxer pos=%d,size=%d,limit=%d,timestampe=%d",es.position(),bi.size,es.limit(),
+            //        (int)bi.presentationTimeUs/1000));
+            //int length= es.limit()-es.position();
+            //if((audioBuffer == null) ||(audioBuffersize < length)) {
+            //    audioBuffer = null;
+            //    audioBuffer = new byte[length];
+            //    audioBuffersize = length;
+           // }
 
-            es.get(audioBuffer,es.position(),length);
-            Log.e(TAG, String.format("rtmpmuxer get buffer data."));
-            int ret=rtmpMuxer.writeSampleData(audioBuffer,0,length,(int)bi.presentationTimeUs/1000,true);
-            Log.w(TAG,String.format("rtmpMuxer.isConnected:%d.",rtmpMuxer.isConnected()));
-            if( ret < 0) {
-                Log.e(TAG, String.format("rtmpmuxer write audio sample failed:%d.",ret));
-
-            }
+           // es.get(audioBuffer,es.position(),length);
+           // Log.e(TAG, String.format("rtmpmuxer get buffer data."));
+            //int ret=rtmpMuxer.writeSampleData(audioBuffer,0,length,(int)bi.presentationTimeUs/1000,true);
+            //Log.w(TAG,String.format("rtmpMuxer.isConnected:%d.",rtmpMuxer.isConnected()));
+            //if( ret < 0) {
+            //    Log.e(TAG, String.format("rtmpmuxer write audio sample failed:%d.",ret));
+            //}
         } catch (Exception e) {
             Log.e(TAG, "muxer write audio sample failed.");
             e.printStackTrace();
@@ -763,7 +651,7 @@ public class MainActivity extends Activity {
             Log.i(TAG, String.format("vencoder %s supports color fomart 0x%x(%d)", vmci.getName(), cf, cf));
 
             // choose YUV for h.264, prefer the bigger one.
-			// corresponding to the color space transform in onPreviewFrame
+            // corresponding to the color space transform in onPreviewFrame
             if ((cf >= cc.COLOR_FormatYUV420Planar && cf <= cc.COLOR_FormatYUV420SemiPlanar)) {
                 if (cf > matchedColorFormat) {
                     matchedColorFormat = cf;

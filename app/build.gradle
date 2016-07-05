@@ -4,7 +4,7 @@ android {
     compileSdkVersion 21
     buildToolsVersion '21.1.2'
     defaultConfig {
-        applicationId 'net.ossrs.sea'
+        applicationId 'net.ossrs.pushdemo'
         minSdkVersion 16
         targetSdkVersion 22
         versionCode 1
@@ -18,14 +18,16 @@ android {
     }
     productFlavors {
     }
-    sourceSets {
-        main {
-            jniLibs.srcDirs = ['libs']
-        }
+}
+
+repositories {
+    flatDir {
+        dirs 'libs'
     }
 }
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile(name: 'streampusher-debug', ext: 'aar')
     compile 'com.android.support:appcompat-v7:22.1.1'
 }

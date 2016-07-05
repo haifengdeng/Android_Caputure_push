@@ -36,6 +36,7 @@ public class RTMPMuxer {
      * -1 if it could not write
      */
     public native int writeAudio(byte[] data, int offset, int length, int timestamp);
+    public native int rtmpWrite(byte[] data,int offset,int length);
 
     public native int close();
 
@@ -45,6 +46,7 @@ public class RTMPMuxer {
     public native void file_open(String filename);
 
     public native void file_close();
+
 
     /**
      *

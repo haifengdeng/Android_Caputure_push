@@ -49,8 +49,12 @@ import java.util.Comparator;
  */
 public class SrsHttpFlv {
     private String url;
-    private HttpURLConnection conn;
-    private BufferedOutputStream bos;
+    //private HttpURLConnection conn;
+    //private BufferedOutputStream bos;
+    RTMPMuxer rtmpMuxer;
+
+    private ByteBuffer    flvTagBuffer;
+    private int       flvTagBuffersize;
 
     private Thread worker;
     private Looper looper;
@@ -83,6 +87,9 @@ public class SrsHttpFlv {
         url = path;
         flv = new SrsFlv();
         cache = new ArrayList<SrsFlvFrame>();
+
+        flvTagBuffer=null;
+        flvTagBuffersize=0;
     }
 
     /**
@@ -171,7 +178,7 @@ public class SrsHttpFlv {
     public void stop() {
         clearCache();
 
-        if (worker == null && conn == null) {
+        if (worker == null && rtmpMuxer == null/*conn == null*/) {
             return;
         }
 
@@ -191,21 +198,24 @@ public class SrsHttpFlv {
             worker = null;
         }
 
-        if (bos != null) {
-            try {
-                bos.close();
-            } catch (IOException e) {
-                Log.i(TAG, "worker: close bos failed.");
-                e.printStackTrace();
-            }
-            bos = null;
-        }
+        //if (bos != null) {
+        //    try {
+        //        bos.close();
+        //    } catch (IOException e) {
+        //        Log.i(TAG, "worker: close bos failed.");
+        //        e.printStackTrace();
+        //    }
+        //    bos = null;
+        //}
 
-        if (conn != null) {
-            conn.disconnect();
-            conn = null;
+        //if (conn != null) {
+        //    conn.disconnect();
+        //    conn = null;
+       // }
+        if(rtmpMuxer != null){
+            rtmpMuxer.close();
+            rtmpMuxer = null;
         }
-
         Log.i(TAG, String.format("worker: muxer closed, url=%s", url));
     }
 
@@ -235,22 +245,36 @@ public class SrsHttpFlv {
     private void disconnect() {
         clearCache();
 
-        if (bos == null && conn == null) {
+        //if (bos == null && conn == null) {
+        //    return;
+        //}
+
+       // if (bos != null) {
+       //     try {
+        //        bos.close();
+        //    } catch (IOException e) {
+        //    }
+        //    bos = null;
+        //}
+
+        //if (conn != null) {
+        //    conn.disconnect();
+        //    conn = null;
+       // }
+
+        if(rtmpMuxer == null)
             return;
+
+        if(rtmpMuxer != null){
+            rtmpMuxer.close();
+            rtmpMuxer = null;
         }
 
-        if (bos != null) {
-            try {
-                bos.close();
-            } catch (IOException e) {
-            }
-            bos = null;
+        if(flvTagBuffer != null){
+            flvTagBuffer=null;
+            flvTagBuffersize=0;
         }
 
-        if (conn != null) {
-            conn.disconnect();
-            conn = null;
-        }
         Log.i(TAG, "worker: disconnect SRS ok.");
     }
 
@@ -263,33 +287,41 @@ public class SrsHttpFlv {
 
     private void reconnect() throws Exception {
         // when bos not null, already connected.
-        if (bos != null) {
-            return;
-        }
+        //if (bos != null) {
+        //    return;
+        //}
 
         disconnect();
 
-        URL u = new URL(url);
-        conn = (HttpURLConnection)u.openConnection();
+        //URL u = new URL(url);
+        //conn = (HttpURLConnection)u.openConnection();
+
+        rtmpMuxer =new RTMPMuxer();
+        int ret =0;
+        if((ret=rtmpMuxer.open(url)) < 0){
+            Log.e(TAG, "open rtmpmuxer failed.");
+            rtmpMuxer = null;
+            throw new Exception(String.format("open rtmomuxer failed,err:%d",ret));
+        }
 
         Log.i(TAG, String.format("worker: connect to SRS by url=%s", url));
-        conn.setDoOutput(true);
-        conn.setChunkedStreamingMode(0);
-        conn.setRequestProperty("Content-Type", "application/octet-stream");
-        bos = new BufferedOutputStream(conn.getOutputStream());
+        //conn.setDoOutput(true);
+        //conn.setChunkedStreamingMode(0);
+        //conn.setRequestProperty("Content-Type", "application/octet-stream");
+        //bos = new BufferedOutputStream(conn.getOutputStream());
         Log.i(TAG, String.format("worker: muxer opened, url=%s", url));
 
         // write 13B header
         // 9bytes header and 4bytes first previous-tag-size
-        byte[] flv_header = new byte[]{
-                'F', 'L', 'V', // Signatures "FLV"
-                (byte) 0x01, // File version (for example, 0x01 for FLV version 1)
-                (byte) 0x00, // 4, audio; 1, video; 5 audio+video.
-                (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x09, // DataOffset UI32 The length of this header in bytes
-                (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00
-        };
-        bos.write(flv_header);
-        bos.flush();
+        //byte[] flv_header = new byte[]{
+        //        'F', 'L', 'V', // Signatures "FLV"
+        //        (byte) 0x01, // File version (for example, 0x01 for FLV version 1)
+        //        (byte) 0x00, // 4, audio; 1, video; 5 audio+video.
+        //        (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x09, // DataOffset UI32 The length of this header in bytes
+        //        (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00
+        //};
+        //bos.write(flv_header);
+        //bos.flush();
         Log.i(TAG, String.format("worker: flv header ok."));
 
         clearCache();
@@ -310,6 +342,11 @@ public class SrsHttpFlv {
                 try {
                     // only reconnect when got keyframe.
                     if (frame.is_keyframe()) {
+                        Log.w(TAG, String.format("frame is key frame "));
+
+                    }
+                    if(null == rtmpMuxer ||0==rtmpMuxer.isConnected()) {
+                        Log.w(TAG, String.format("no rtmpmuxer or is not connected,reconnect"));
                         reconnect();
                     }
                 } catch (Exception e) {
@@ -320,7 +357,7 @@ public class SrsHttpFlv {
                 try {
                     // when sequence header required,
                     // adjust the dts by the current frame and sent it.
-                    if (!sequenceHeaderOk && bos != null) {
+                    if (!sequenceHeaderOk && rtmpMuxer != null) {
                         if (videoSequenceHeader != null) {
                             videoSequenceHeader.dts = frame.dts;
                         }
@@ -328,14 +365,14 @@ public class SrsHttpFlv {
                             audioSequenceHeader.dts = frame.dts;
                         }
 
-                        sendFlvTag(bos, audioSequenceHeader);
-                        sendFlvTag(bos, videoSequenceHeader);
+                        sendFlvTag(audioSequenceHeader);
+                        sendFlvTag(videoSequenceHeader);
                         sequenceHeaderOk = true;
                     }
 
                     // try to send, igore when not connected.
-                    if (sequenceHeaderOk && bos != null) {
-                        sendFlvTag(bos, frame);
+                    if (sequenceHeaderOk && rtmpMuxer != null) {
+                        sendFlvTag(frame);
                     }
 
                     // cache the sequence header.
@@ -356,7 +393,7 @@ public class SrsHttpFlv {
         Looper.loop();
     }
 
-    private void sendFlvTag(BufferedOutputStream bos, SrsFlvFrame frame) throws IOException {
+    private void sendFlvTag(SrsFlvFrame frame) throws IOException {
         if (frame == null) {
             return;
         }
@@ -403,6 +440,16 @@ public class SrsHttpFlv {
                  //   frame.type, frame.dts, frame.tag.size, nb_videos, nb_audios));
             }
 
+            int flvtagSize = 11+ frame.tag.size +4;
+
+            if((flvTagBuffer == null) ||(flvTagBuffersize < flvtagSize)) {
+                flvTagBuffer = null;
+                flvTagBuffer = ByteBuffer.allocate(flvtagSize);
+                flvTagBuffersize = flvtagSize;
+            }
+
+            flvTagBuffer.clear();
+
             // write the 11B flv tag header
             ByteBuffer th = ByteBuffer.allocate(11);
             // Reserved UB [2]
@@ -419,26 +466,36 @@ public class SrsHttpFlv {
             th.put((byte) 0);
             th.put((byte) 0);
             th.put((byte) 0);
-            bos.write(th.array());
+            //bos.write(th.array());
+            flvTagBuffer.put(th.array(),0,11);
 
             // write the flv tag data.
             byte[] data = frame.tag.frame.array();
-            bos.write(data, 0, frame.tag.size);
+            //bos.write(data, 0, frame.tag.size);
+            flvTagBuffer.put(data,0,frame.tag.size);
+
 
             // write the 4B previous tag size.
             // @remark, we append the tag size, this is different to SRS which write RTMP packet.
             ByteBuffer pps = ByteBuffer.allocate(4);
             pps.putInt((int) (frame.tag.size + 11));
-            bos.write(pps.array());
+            //bos.write(pps.array());
+            flvTagBuffer.put(pps.array(),0,4);
 
             if (frame.is_keyframe()) {
                 Log.i(TAG, String.format("worker: send frame type=%d, dts=%d, size=%dB, tag_size=%#x, time=%#x",
                         frame.type, frame.dts, frame.tag.size, tag_size, time
                 ));
             }
+            if(null!=rtmpMuxer) {
+                int ret1 = rtmpMuxer.rtmpWrite(flvTagBuffer.array(), 0, flvtagSize);
+                if (ret1 < 0) {
+                    Log.e(TAG, String.format("rtmpmuxer rtmp write sample failed:%d.", ret1));
+                }
+            }
         }
 
-        bos.flush();
+        //bos.flush();
     }
 
     /**

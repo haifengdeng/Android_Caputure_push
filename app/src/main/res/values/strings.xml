@@ -1,8 +1,9 @@
 <resources>
-    <string name="app_name">SEA</string>
+    <string name="app_name">Pushdemo</string>
 
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
     <string name="btn_capture">Publish</string>
     <string name="btn_stop">Stop</string>
+    <string name="btn_frontback">BackC</string>
 </resources>
