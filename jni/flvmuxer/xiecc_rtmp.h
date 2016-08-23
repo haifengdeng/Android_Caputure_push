@@ -43,7 +43,7 @@ int rtmp_sender_write_video_frame(uint8_t *data,
                                   uint64_t dts_us,
                                   int key,
                                   uint32_t abs_ts);
-
+int rtmp_sender_rtmpWrite(uint8_t *data,int offset,int size);
 
 void flv_file_open(const char *filename);
 

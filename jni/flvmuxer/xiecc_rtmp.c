@@ -762,3 +762,10 @@ int rtmp_sender_write_video_frame(uint8_t *data,
        LOGE("write video frame return val = %d",val);
     return (val > 0) ? 0: -1;
 }
+
+int rtmp_sender_rtmpWrite(uint8_t *data,int offset,int size)
+{
+     int val = 0;
+     val = RTMP_Write(rtmp, data+offset,size);
+     return (val > 0) ? 0 : -1;
+}

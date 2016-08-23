@@ -54,3 +54,15 @@ JNIEXPORT jint JNICALL
 Java_net_ossrs_sea_RTMPMuxer_isConnected(JNIEnv *env, jobject instance) {
     return rtmp_is_connected();
 }
+
+JNIEXPORT jint JNICALL
+Java_net_ossrs_sea_RTMPMuxer_rtmpWrite(JNIEnv *env, jobject instance,
+                                                       jbyteArray data_, jint offset, jint length                                                    ) {
+    jbyte *data = (*env)->GetByteArrayElements(env, data_, NULL);
+
+    jint result = rtmp_sender_rtmpWrite(data, offset,length);
+
+    (*env)->ReleaseByteArrayElements(env, data_, data, 0);
+
+    return result;
+}

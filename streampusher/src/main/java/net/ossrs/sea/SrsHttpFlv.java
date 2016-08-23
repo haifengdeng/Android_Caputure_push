@@ -488,6 +488,7 @@ public class SrsHttpFlv {
                 ));
             }
             if(null!=rtmpMuxer) {
+                Log.d(TAG, String.format("flvtag dts:%d.", frame.dts));
                 int ret1 = rtmpMuxer.rtmpWrite(flvTagBuffer.array(), 0, flvtagSize);
                 if (ret1 < 0) {
                     Log.e(TAG, String.format("rtmpmuxer rtmp write sample failed:%d.", ret1));
